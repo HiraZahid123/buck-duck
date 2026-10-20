@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/driver/layout,_N_T_/driver/earnings/layout,_N_T_/driver/earnings/page,_N_T_/driver/earnings"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/20799de126d65901a8ed0b83faf2b18a93bc0678482f42dc911bf40f0274cf27/$/driver/earnings",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/driver/earnings/page"
+    },
+    "isFallback": false
+  }
+}

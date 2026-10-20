@@ -1,0 +1,26 @@
+{
+  "name": "buckduck-monorepo",
+  "version": "2.0.0",
+  "description": "BuckDuck · StoreFront USA — Next.js & NestJS Production Marketplace",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=@buckduck/api",
+    "dev:web": "npm run dev --workspace=@buckduck/web",
+    "start:api": "node apps/api/dist/main.js",
+    "start:web": "npm run start --workspace=@buckduck/web",
+    "build:api": "tsc -p apps/api/tsconfig.json",
+    "build:web": "npm run build --workspace=@buckduck/web",
+    "build": "npm run build:api && npm run build:web",
+    "prisma:generate": "prisma generate --schema=apps/api/prisma/schema.prisma",
+    "prisma:push": "prisma db push --schema=apps/api/prisma/schema.prisma",
+    "seed": "ts-node apps/api/src/prisma/seed.ts",
+    "prototype:dev": "node --no-warnings --watch server/index.js",
+    "prototype:start": "node --no-warnings server/index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

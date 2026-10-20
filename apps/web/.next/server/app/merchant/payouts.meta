@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/merchant/layout,_N_T_/merchant/payouts/layout,_N_T_/merchant/payouts/page,_N_T_/merchant/payouts"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/71d60dc317803aa0acfe6fb20068fc4e5b792ae56808e3f94fcd99d9cca9aa84/$/merchant/payouts",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/merchant/payouts/page"
+    },
+    "isFallback": false
+  }
+}

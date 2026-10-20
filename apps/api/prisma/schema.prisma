@@ -1,0 +1,192 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String
+  role         String    // 'customer' | 'merchant' | 'driver' | 'admin'
+  phone        String?
+  status       String    @default("active") // 'active' | 'suspended'
+  driverOnline Boolean   @default(false) @map("driver_online")
+  vehicle      String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  stores       Store[]
+  orders       Order[]   @relation("CustomerOrders")
+  deliveries   Order[]   @relation("DriverOrders")
+  checkouts    Checkout[]
+
+  @@map("users")
+}
+
+model Store {
+  id                   Int       @id @default(autoincrement())
+  ownerId              Int       @map("owner_id")
+  name                 String
+  slug                 String    @unique
+  tagline              String?
+  description          String?
+  category             String    @default("Groceries")
+  address              String?
+  city                 String    @default("Silver Spring")
+  state                String    @default("MD")
+  zip                  String    @default("20910")
+  phone                String?
+  color                String    @default("#1E3A8A")
+  emoji                String    @default("🛒")
+  logoUrl              String?   @map("logo_url")
+  status               String    @default("pending") // 'pending' | 'active' | 'suspended'
+  commissionRate       Float     @default(0.15) @map("commission_rate")
+  stripeAccountId      String?   @map("stripe_account_id")
+  stripeChargesEnabled Boolean   @default(false) @map("stripe_charges_enabled")
+  rating               Float     @default(4.9)
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  owner                User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  products             Product[]
+  orders               Order[]
+
+  @@map("stores")
+}
+
+model Product {
+  id          Int          @id @default(autoincrement())
+  storeId     Int          @map("store_id")
+  name        String
+  description String?
+  category    String       @default("General")
+  priceCents  Int          @map("price_cents")
+  unit        String?
+  stock       Int          @default(0)
+  emoji       String?      @default("🛒")
+  imageUrl    String?      @map("image_url")
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  store       Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+
+  @@map("products")
+}
+
+model DeliveryWindow {
+  id        Int      @id @default(autoincrement())
+  date      String   // 'YYYY-MM-DD'
+  startTime String   @map("start_time") // 'HH:MM'
+  endTime   String   @map("end_time")   // 'HH:MM'
+  label     String
+  capacity  Int      @default(120)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders    Order[]
+
+  @@unique([date, startTime])
+  @@map("delivery_windows")
+}
+
+model Checkout {
+  id              Int       @id @default(autoincrement())
+  customerId      Int       @map("customer_id")
+  totalCents      Int       @map("total_cents")
+  paymentStatus   String    @default("pending") @map("payment_status") // 'pending' | 'paid' | 'failed' | 'refunded'
+  paymentIntentId String?   @map("payment_intent_id")
+  paymentMethod   String?   @map("payment_method") // 'card' | 'apple_pay' | 'google_pay'
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  customer        User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders          Order[]
+
+  @@map("checkouts")
+}
+
+model Order {
+  id               Int            @id @default(autoincrement())
+  number           String         @unique // e.g. 'BD-10042' or 'BD-10042-A'
+  checkoutId       Int?           @map("checkout_id")
+  customerId       Int            @map("customer_id")
+  storeId          Int            @map("store_id")
+  windowId         Int            @map("window_id")
+  driverId         Int?           @map("driver_id")
+  status           String         @default("pending_payment") // 'pending_payment'|'placed'|'accepted'|'packing'|'ready'|'picked_up'|'delivered'|'cancelled'|'refunded'
+  subtotalCents    Int            @default(0) @map("subtotal_cents")
+  deliveryFeeCents Int            @default(0) @map("delivery_fee_cents")
+  serviceFeeCents  Int            @default(0) @map("service_fee_cents")
+  taxCents         Int            @default(0) @map("tax_cents")
+  tipCents         Int            @default(0) @map("tip_cents")
+  totalCents       Int            @default(0) @map("total_cents")
+  commissionCents  Int            @default(0) @map("commission_cents")
+  driverPayCents   Int            @default(0) @map("driver_pay_cents")
+  bags             Int            @default(1)
+  addressLine1     String?        @map("address_line1")
+  addressLine2     String?        @map("address_line2")
+  city             String?
+  state            String?
+  zip              String?
+  phone            String?
+  notes            String?
+  proofNote        String?        @map("proof_note")
+  proofPhotoUrl    String?        @map("proof_photo_url")
+  transferId       String?        @map("transfer_id")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  checkout         Checkout?      @relation(fields: [checkoutId], references: [id], onDelete: SetNull)
+  customer         User           @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: Cascade)
+  store            Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  window           DeliveryWindow @relation(fields: [windowId], references: [id], onDelete: Cascade)
+  driver           User?          @relation("DriverOrders", fields: [driverId], references: [id], onDelete: SetNull)
+  items            OrderItem[]
+  events           OrderEvent[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         Int      @id @default(autoincrement())
+  orderId    Int      @map("order_id")
+  productId  Int?     @map("product_id")
+  name       String
+  emoji      String?
+  unit       String?
+  priceCents Int      @map("price_cents")
+  qty        Int
+
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@map("order_items")
+}
+
+model OrderEvent {
+  id        Int      @id @default(autoincrement())
+  orderId   Int      @map("order_id")
+  status    String
+  note      String?
+  actor     String   @default("system") // 'system' | 'customer' | 'merchant' | 'driver' | 'admin'
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_events")
+}
+
+model Setting {
+  key   String @id
+  value String
+
+  @@map("settings")
+}

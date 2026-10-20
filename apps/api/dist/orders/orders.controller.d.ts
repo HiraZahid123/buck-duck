@@ -1,0 +1,208 @@
+import { OrdersService } from './orders.service';
+export declare class OrdersController {
+    private ordersService;
+    constructor(ordersService: OrdersService);
+    getCustomerOrders(userId: number): Promise<{
+        orders: {
+            item_count: number;
+            store: {
+                id: number;
+                name: string;
+                slug: string;
+                color: string;
+                emoji: string;
+            };
+            driver: {
+                id: number;
+                name: string;
+                phone: string;
+            };
+            window: {
+                label: string;
+                id: number;
+                date: string;
+                startTime: string;
+                endTime: string;
+                capacity: number;
+                active: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+            };
+            items: {
+                id: number;
+                name: string;
+                emoji: string | null;
+                priceCents: number;
+                unit: string | null;
+                qty: number;
+                productId: number | null;
+                orderId: number;
+            }[];
+            number: string;
+            id: number;
+            createdAt: Date;
+            updatedAt: Date;
+            phone: string | null;
+            status: string;
+            city: string | null;
+            state: string | null;
+            zip: string | null;
+            storeId: number;
+            bags: number;
+            totalCents: number;
+            customerId: number;
+            subtotalCents: number;
+            deliveryFeeCents: number;
+            serviceFeeCents: number;
+            taxCents: number;
+            tipCents: number;
+            commissionCents: number;
+            driverPayCents: number;
+            addressLine1: string | null;
+            addressLine2: string | null;
+            notes: string | null;
+            proofNote: string | null;
+            proofPhotoUrl: string | null;
+            transferId: string | null;
+            checkoutId: number | null;
+            windowId: number;
+            driverId: number | null;
+        }[];
+    }>;
+    getOrderById(user: any, id: string): Promise<{
+        order: {
+            item_count: number;
+            store: {
+                id: number;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                description: string | null;
+                phone: string | null;
+                status: string;
+                slug: string;
+                ownerId: number;
+                tagline: string | null;
+                category: string;
+                address: string | null;
+                city: string;
+                state: string;
+                zip: string;
+                color: string;
+                emoji: string;
+                logoUrl: string | null;
+                commissionRate: number;
+                stripeAccountId: string | null;
+                stripeChargesEnabled: boolean;
+                rating: number;
+            };
+            checkout: {
+                paymentStatus: string;
+                paymentMethod: string;
+            };
+            customer: {
+                id: number;
+                name: string;
+                email: string;
+                phone: string;
+            };
+            driver: {
+                id: number;
+                name: string;
+                phone: string;
+                vehicle: string;
+            };
+            window: {
+                label: string;
+                id: number;
+                date: string;
+                startTime: string;
+                endTime: string;
+                capacity: number;
+                active: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+            };
+            items: {
+                id: number;
+                name: string;
+                emoji: string | null;
+                priceCents: number;
+                unit: string | null;
+                qty: number;
+                productId: number | null;
+                orderId: number;
+            }[];
+            events: {
+                id: number;
+                createdAt: Date;
+                status: string;
+                orderId: number;
+                note: string | null;
+                actor: string;
+            }[];
+            number: string;
+            id: number;
+            createdAt: Date;
+            updatedAt: Date;
+            phone: string | null;
+            status: string;
+            city: string | null;
+            state: string | null;
+            zip: string | null;
+            storeId: number;
+            bags: number;
+            totalCents: number;
+            customerId: number;
+            subtotalCents: number;
+            deliveryFeeCents: number;
+            serviceFeeCents: number;
+            taxCents: number;
+            tipCents: number;
+            commissionCents: number;
+            driverPayCents: number;
+            addressLine1: string | null;
+            addressLine2: string | null;
+            notes: string | null;
+            proofNote: string | null;
+            proofPhotoUrl: string | null;
+            transferId: string | null;
+            checkoutId: number | null;
+            windowId: number;
+            driverId: number | null;
+        };
+    }>;
+    cancelOrder(userId: number, id: string): Promise<{
+        order: {
+            number: string;
+            id: number;
+            createdAt: Date;
+            updatedAt: Date;
+            phone: string | null;
+            status: string;
+            city: string | null;
+            state: string | null;
+            zip: string | null;
+            storeId: number;
+            bags: number;
+            totalCents: number;
+            customerId: number;
+            subtotalCents: number;
+            deliveryFeeCents: number;
+            serviceFeeCents: number;
+            taxCents: number;
+            tipCents: number;
+            commissionCents: number;
+            driverPayCents: number;
+            addressLine1: string | null;
+            addressLine2: string | null;
+            notes: string | null;
+            proofNote: string | null;
+            proofPhotoUrl: string | null;
+            transferId: string | null;
+            checkoutId: number | null;
+            windowId: number;
+            driverId: number | null;
+        };
+    }>;
+}
