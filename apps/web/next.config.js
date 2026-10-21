@@ -12,6 +12,19 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async rewrites() {
+    const apiTarget = process.env.INTERNAL_API_URL || 'http://127.0.0.1:4000';
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${apiTarget}/api/:path*`,
+      },
+      {
+        source: '/socket.io/:path*',
+        destination: `${apiTarget}/socket.io/:path*`,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

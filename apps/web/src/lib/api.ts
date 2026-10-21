@@ -1,7 +1,18 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const getApiBase = () => {
+  if (typeof window !== 'undefined') {
+    // In production browser (e.g. buckduck.hirazahid.com), use relative path to avoid CORS & mixed content
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return '';
+    }
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  }
+  // Server-side (SSR / Node.js):
+  return process.env.INTERNAL_API_URL || 'http://127.0.0.1:4000';
+};
 
 export async function apiRequest(method: string, path: string, body?: any, token?: string | null) {
-  let url = `${API_BASE}${path}`;
+  const base = getApiBase();
+  let url = `${base}${path}`;
   if (method === 'GET' && body) {
     const qs = new URLSearchParams(
       Object.entries(body)
