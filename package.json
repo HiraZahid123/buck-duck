@@ -28,5 +28,10 @@
   "dependencies": {
     "@neon/config": "^1.9.3",
     "@neon/env": "^1.6.4"
+  },
+  "overrides": {
+    "multer": "^2.3.0",
+    "deepmerge-ts": "^8.0.0",
+    "postcss": "^8.5.18"
   }
 }
