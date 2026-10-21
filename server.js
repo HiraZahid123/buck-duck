@@ -8,6 +8,14 @@ const path = require('path');
 
 const rootDir = __dirname;
 
+// Ensure .env is loaded if present
+try {
+  const envPath = path.join(rootDir, '.env');
+  if (fs.existsSync(envPath)) {
+    require('dotenv').config({ path: envPath });
+  }
+} catch (e) {}
+
 // 1. Locate and launch NestJS API backend on internal port 4000
 const apiCandidates = [
   path.join(rootDir, 'apps', 'api', 'dist', 'main.js'),
@@ -16,10 +24,11 @@ const apiCandidates = [
 
 const apiPath = apiCandidates.find((c) => fs.existsSync(c));
 
+let apiProc = null;
 if (apiPath) {
   console.log(`[BuckDuck] Launching NestJS API backend from ${apiPath}...`);
   try {
-    const apiProc = fork(apiPath, [], {
+    apiProc = fork(apiPath, [], {
       env: {
         ...process.env,
         PORT: '4000',
@@ -30,6 +39,9 @@ if (apiPath) {
     apiProc.on('error', (err) => {
       console.error('[BuckDuck API Error]', err);
     });
+    apiProc.on('exit', (code, signal) => {
+      console.warn(`[BuckDuck] NestJS API process exited with code ${code}, signal ${signal}`);
+    });
     console.log('[BuckDuck] NestJS API process spawned successfully on internal port 4000.');
   } catch (err) {
     console.error('[BuckDuck] Failed to spawn NestJS process:', err);
@@ -38,12 +50,24 @@ if (apiPath) {
   console.warn('[BuckDuck] Warning: NestJS API build (dist/main.js) not found. Checked:', apiCandidates);
 }
 
+// Cleanly kill child API process on shutdown
+const cleanup = () => {
+  if (apiProc && !apiProc.killed) {
+    try {
+      apiProc.kill();
+    } catch {}
+  }
+};
+process.on('SIGINT', () => { cleanup(); process.exit(0); });
+process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+process.on('exit', cleanup);
+
 // 2. Locate and launch Next.js Standalone server on Hostinger's assigned public PORT
 const nextCandidates = [
-  path.join(rootDir, '.next', 'standalone', 'apps', 'web', 'server.js'),
   path.join(rootDir, '.next', 'standalone', 'server.js'),
-  path.join(rootDir, 'apps', 'web', '.next', 'standalone', 'apps', 'web', 'server.js'),
+  path.join(rootDir, '.next', 'standalone', 'apps', 'web', 'server.js'),
   path.join(rootDir, 'apps', 'web', '.next', 'standalone', 'server.js'),
+  path.join(rootDir, 'apps', 'web', '.next', 'standalone', 'apps', 'web', 'server.js'),
 ];
 
 const serverPath = nextCandidates.find((c) => fs.existsSync(c));

@@ -5,7 +5,7 @@
   "description": "BuckDuck Next.js Production Web Application",
   "scripts": {
     "dev": "next dev -p 3001",
-    "build": "cross-env NODE_ENV=production next build",
+    "build": "next build",
     "start": "next start"
   },
   "dependencies": {

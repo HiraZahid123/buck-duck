@@ -9,12 +9,12 @@
   "scripts": {
     "dev:api": "npm run dev --workspace=@buckduck/api",
     "dev:web": "npm run dev --workspace=@buckduck/web",
-    "start": "npm run start:web",
+    "start": "node server.js",
     "start:api": "node apps/api/dist/main.js",
     "start:web": "npm run start --workspace=@buckduck/web",
     "build:api": "tsc -p apps/api/tsconfig.json",
     "build:web": "npm run build --workspace=@buckduck/web",
-    "build": "npm run build:api && npm run build:web && node scripts/sync-next.js",
+    "build": "npm run prisma:generate && npm run build:api && npm run build:web && node scripts/sync-next.js",
     "prisma:generate": "prisma generate --schema=apps/api/prisma/schema.prisma",
     "prisma:push": "prisma db push --schema=apps/api/prisma/schema.prisma",
     "seed": "ts-node apps/api/src/prisma/seed.ts"
@@ -27,7 +27,9 @@
   },
   "dependencies": {
     "@neon/config": "^1.9.3",
-    "@neon/env": "^1.6.4"
+    "@neon/env": "^1.6.4",
+    "dotenv": "^16.4.7",
+    "prisma": "^6.2.1"
   },
   "overrides": {
     "multer": "^2.3.0",

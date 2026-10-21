@@ -1,10 +1,7 @@
 const getApiBase = () => {
   if (typeof window !== 'undefined') {
-    // In production browser (e.g. buckduck.hirazahid.com), use relative path to avoid CORS & mixed content
-    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      return '';
-    }
-    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    // In browser (both localhost & production), use relative path so Next.js proxies /api/* directly to the backend
+    return '';
   }
   // Server-side (SSR / Node.js):
   return process.env.INTERNAL_API_URL || 'http://127.0.0.1:4000';
