@@ -17,9 +17,7 @@
     "build": "npm run build:api && npm run build:web && node scripts/sync-next.js",
     "prisma:generate": "prisma generate --schema=apps/api/prisma/schema.prisma",
     "prisma:push": "prisma db push --schema=apps/api/prisma/schema.prisma",
-    "seed": "ts-node apps/api/src/prisma/seed.ts",
-    "prototype:dev": "node --no-warnings --watch server/index.js",
-    "prototype:start": "node --no-warnings server/index.js"
+    "seed": "ts-node apps/api/src/prisma/seed.ts"
   },
   "engines": {
     "node": ">=20.0.0"
