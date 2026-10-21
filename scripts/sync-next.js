@@ -52,6 +52,47 @@ try {
       fs.cpSync(webPublic, webPub, { recursive: true });
       console.log(`[sync-next] Copied public assets into standalone directory.`);
     }
+
+    // Ensure NestJS API dist is copied into standalone and .next directories
+    const apiDist = path.join(rootDir, 'apps', 'api', 'dist');
+    if (fs.existsSync(apiDist)) {
+      const standaloneApiDist = path.join(standaloneRoot, 'apps', 'api', 'dist');
+      const destApiDist = path.join(destDir, 'apps', 'api', 'dist');
+      fs.mkdirSync(standaloneApiDist, { recursive: true });
+      fs.cpSync(apiDist, standaloneApiDist, { recursive: true });
+      fs.mkdirSync(destApiDist, { recursive: true });
+      fs.cpSync(apiDist, destApiDist, { recursive: true });
+      console.log(`[sync-next] Copied NestJS API dist into standalone and .next.`);
+    }
+
+    // Ensure backend dependencies are present in standalone node_modules
+    const rootModules = path.join(rootDir, 'node_modules');
+    const standaloneModules = path.join(standaloneRoot, 'node_modules');
+    const backendDeps = [
+      '@nestjs',
+      '@prisma',
+      'prisma',
+      'bcryptjs',
+      'passport',
+      'passport-jwt',
+      'reflect-metadata',
+      'rxjs',
+      'class-transformer',
+      'class-validator',
+      'dotenv',
+    ];
+
+    for (const dep of backendDeps) {
+      const srcDep = path.join(rootModules, dep);
+      const destDep = path.join(standaloneModules, dep);
+      if (fs.existsSync(srcDep) && !fs.existsSync(destDep)) {
+        try {
+          fs.mkdirSync(path.dirname(destDep), { recursive: true });
+          fs.cpSync(srcDep, destDep, { recursive: true });
+        } catch {}
+      }
+    }
+    console.log(`[sync-next] Synced backend dependencies into standalone node_modules.`);
   }
 } catch (err) {
   console.error(`[sync-next] Failed during sync:`, err.message);
