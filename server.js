@@ -49,6 +49,7 @@ if (apiPath) {
       console.warn(`[BuckDuck] NestJS API process exited with code ${code}, signal ${signal}`);
     });
     console.log('[BuckDuck] NestJS API process spawned successfully on internal port 4000.');
+    process.env.API_ALREADY_SPAWNED = 'true';
   } catch (err) {
     console.error('[BuckDuck] Failed to spawn NestJS process:', err);
   }

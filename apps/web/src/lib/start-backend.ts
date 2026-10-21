@@ -10,7 +10,7 @@ declare global {
 let backendProcess: any = null;
 
 export function ensureBackendRunning() {
-  if (globalThis.__BUCKDUCK_API_STARTED) {
+  if (globalThis.__BUCKDUCK_API_STARTED || process.env.API_ALREADY_SPAWNED === 'true') {
     return;
   }
   globalThis.__BUCKDUCK_API_STARTED = true;
