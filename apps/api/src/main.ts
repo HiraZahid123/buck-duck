@@ -24,4 +24,7 @@ async function bootstrap() {
   console.log(`🦆 BuckDuck NestJS API is listening on http://0.0.0.0:${port}`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('[NestJS Fatal Error during bootstrap]', err);
+  process.exit(1);
+});

@@ -117,10 +117,19 @@ try {
 'use strict';
 const { fork } = require('child_process');
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
 
 const dir = __dirname;
 process.chdir(dir);
+
+// Ignore benign duplicate close errors on server shutdown
+process.on('uncaughtException', (err) => {
+  if (err && err.message && err.message.includes('Server is not running')) {
+    return;
+  }
+  console.error('[BuckDuck Uncaught Exception]', err);
+});
 
 // Load environment variables
 try {
@@ -136,52 +145,98 @@ const existing = process.env.NODE_PATH || '';
 process.env.NODE_PATH = [standaloneMods, existing].filter(Boolean).join(path.delimiter);
 require('module').Module._initPaths();
 
-// ── Start NestJS API on port 4000 ──────────────────────────────────────────
-const apiCandidates = [
-  path.join(dir, 'apps', 'api', 'dist', 'main.js'),
-  path.join(dir, 'dist', 'main.js'),
-];
-const apiPath = apiCandidates.find(c => fs.existsSync(c));
-
-if (apiPath && process.env.API_ALREADY_SPAWNED !== 'true') {
-  console.log('[BuckDuck] Starting NestJS API from ' + apiPath);
-  try {
-    process.env.API_ALREADY_SPAWNED = 'true';
-    const apiProc = fork(apiPath, [], {
-      env: {
-        ...process.env,
-        PORT: '4000',
-        API_PORT: '4000',
-        API_ALREADY_SPAWNED: 'true',
-        NODE_PATH: standaloneMods + path.delimiter + (process.env.NODE_PATH || ''),
-      },
-      stdio: 'inherit',
-      execArgv: [],
+async function waitForBackend(port = 4000, maxWaitMs = 30000) {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const ready = await new Promise((resolve) => {
+      const req = http.get('http://127.0.0.1:' + port + '/api/healthz', (res) => {
+        resolve(res.statusCode === 200);
+      });
+      req.on('error', () => resolve(false));
+      req.setTimeout(800, () => {
+        req.destroy();
+        resolve(false);
+      });
     });
-    apiProc.on('error', e => console.error('[BuckDuck API error]', e.message));
-    apiProc.on('exit', (code, sig) => console.warn('[BuckDuck] API exited code=' + code + ' signal=' + sig));
-    process.env.API_ALREADY_SPAWNED = 'true';
-  } catch (e) {
-    console.error('[BuckDuck] Failed to fork NestJS:', e.message);
+    if (ready) return true;
+    await new Promise((r) => setTimeout(r, 250));
   }
-} else {
-  console.warn('[BuckDuck] NestJS dist not found. Checked:', apiCandidates.join(', '));
+  return false;
 }
 
-// ── Start Next.js standalone server ────────────────────────────────────────
-const nextServerCandidates = [
-  path.join(dir, 'apps', 'web', 'server.js'),
-  path.join(dir, 'server.js.next'), // fallback name if we renamed it
-];
-const nextServer = nextServerCandidates.find(c => fs.existsSync(c));
-if (nextServer) {
-  console.log('[BuckDuck] Starting Next.js from ' + nextServer);
-  require(nextServer);
-} else {
-  // Final fallback: try to find any server.js in common locations
-  console.error('[BuckDuck] Could not find Next.js server. Searched:', nextServerCandidates.join(', '));
-  process.exit(1);
+async function boot() {
+  // ── Start NestJS API on port 4000 ──────────────────────────────────────────
+  const apiCandidates = [
+    path.join(dir, 'apps', 'api', 'dist', 'main.js'),
+    path.join(dir, 'dist', 'main.js'),
+  ];
+  const apiPath = apiCandidates.find(c => fs.existsSync(c));
+  let apiProc = null;
+
+  if (apiPath && process.env.API_ALREADY_SPAWNED !== 'true') {
+    process.env.API_ALREADY_SPAWNED = 'true';
+    console.log('[BuckDuck] Starting NestJS API from ' + apiPath);
+    try {
+      apiProc = fork(apiPath, [], {
+        env: {
+          ...process.env,
+          PORT: '4000',
+          API_PORT: '4000',
+          API_ALREADY_SPAWNED: 'true',
+          NODE_PATH: standaloneMods + path.delimiter + (process.env.NODE_PATH || ''),
+        },
+        stdio: 'inherit',
+        execArgv: [],
+      });
+      apiProc.on('error', e => console.error('[BuckDuck API error]', e.message));
+      apiProc.on('exit', (code, sig) => {
+        console.warn('[BuckDuck] API exited code=' + code + ' signal=' + sig);
+        process.env.API_ALREADY_SPAWNED = 'false';
+      });
+
+      console.log('[BuckDuck] Waiting for NestJS API to be healthy on port 4000...');
+      const ready = await waitForBackend(4000, 30000);
+      if (ready) {
+        console.log('[BuckDuck] NestJS API is healthy and connected to database.');
+      } else {
+        console.warn('[BuckDuck] NestJS API did not respond to healthz in 30s; proceeding with Next.js startup.');
+      }
+    } catch (e) {
+      process.env.API_ALREADY_SPAWNED = 'false';
+      console.error('[BuckDuck] Failed to fork NestJS:', e.message);
+    }
+  } else {
+    console.log('[BuckDuck] NestJS API is already spawned or dist not found.');
+  }
+
+  const cleanup = () => {
+    if (apiProc && !apiProc.killed) {
+      try { apiProc.kill(); } catch {}
+    }
+  };
+  process.on('SIGINT', () => { cleanup(); process.exit(0); });
+  process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+  process.on('exit', cleanup);
+
+  // ── Start Next.js standalone server ────────────────────────────────────────
+  const nextServerCandidates = [
+    path.join(dir, 'apps', 'web', 'server.js'),
+    path.join(dir, 'server.js.next'),
+  ];
+  const nextServer = nextServerCandidates.find(c => fs.existsSync(c));
+  if (nextServer) {
+    console.log('[BuckDuck] Starting Next.js from ' + nextServer);
+    require(nextServer);
+  } else {
+    console.error('[BuckDuck] Could not find Next.js server. Searched:', nextServerCandidates.join(', '));
+    process.exit(1);
+  }
 }
+
+boot().catch((err) => {
+  console.error('[BuckDuck Boot Error]', err);
+  process.exit(1);
+});
 `;
 
   // Find the actual Next.js server.js location

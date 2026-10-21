@@ -27,12 +27,28 @@ export async function apiRequest(method: string, path: string, body?: any, token
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: body && method !== 'GET' ? JSON.stringify(body) : undefined,
-    cache: 'no-store',
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers,
+      body: body && method !== 'GET' ? JSON.stringify(body) : undefined,
+      cache: 'no-store',
+    });
+  } catch (err: any) {
+    if (typeof window === 'undefined') {
+      // Retry once after 600ms for server-side cold start
+      await new Promise((r) => setTimeout(r, 600));
+      res = await fetch(url, {
+        method,
+        headers,
+        body: body && method !== 'GET' ? JSON.stringify(body) : undefined,
+        cache: 'no-store',
+      });
+    } else {
+      throw err;
+    }
+  }
 
   let data: any = {};
   try {
