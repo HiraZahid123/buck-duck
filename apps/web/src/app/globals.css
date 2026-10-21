@@ -102,7 +102,7 @@ table.table{width:100%;border-collapse:collapse;font-size:14px}
 .slot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:rgba(255,255,255,.08);border-radius:14px;margin-top:10px}
 .slot .t{font-weight:700} .bar{height:6px;background:rgba(255,255,255,.15);border-radius:999px;overflow:hidden;width:100px} .bar i{display:block;height:100%;background:var(--gold-metal)}
 
-.section{padding:56px 0} .section-h{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:22px} .section-h h2{margin:0;font-family:var(--display);font-size:30px}
+.section{padding:56px 0} .section-h{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:22px} .section-h h2{margin:0;font-family:var(--display);font-size:30px}
 .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
 .step{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:22px;position:relative}
 .step .n{width:40px;height:40px;border-radius:12px;background:var(--navy-900);color:var(--gold-400);display:flex;align-items:center;justify-content:center;font-weight:800;margin-bottom:12px}

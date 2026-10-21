@@ -1,5 +1,26 @@
 node_modules/
 data/
 .env
+.env.local
 demo/dist/
 *.log
+
+# Next.js build output & cache
+.next/
+apps/web/.next/
+out/
+
+# TypeScript & NestJS build output
+dist/
+apps/api/dist/
+*.tsbuildinfo
+
+# SQLite databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# OS & IDE
+.DS_Store
+.turbo/
