@@ -1,6 +1,5 @@
 import path from 'path';
 import fs from 'fs';
-import os from 'os';
 import net from 'net';
 import cluster from 'cluster';
 import { fork } from 'child_process';
@@ -15,7 +14,7 @@ let backendProcess: any = null;
 function isPortOpen(port: number, host = '127.0.0.1'): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = new net.Socket();
-    socket.setTimeout(350);
+    socket.setTimeout(300);
     socket.once('connect', () => {
       socket.destroy();
       resolve(true);
@@ -42,23 +41,6 @@ export async function ensureBackendRunning() {
     return;
   }
 
-  // Check PID file in temp directory
-  const pidFile = path.join(os.tmpdir(), 'buckduck-api.pid');
-  if (fs.existsSync(pidFile)) {
-    try {
-      const existingPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
-      if (existingPid && !isNaN(existingPid)) {
-        process.kill(existingPid, 0);
-        console.log(`[Instrumentation] Backend process ${existingPid} is already active.`);
-        globalThis.__BUCKDUCK_API_STARTED = true;
-        process.env.API_ALREADY_SPAWNED = 'true';
-        return;
-      }
-    } catch {
-      // Stale PID file
-    }
-  }
-
   // Check if backend is already listening on internal port 4000
   const alreadyListening = await isPortOpen(4000);
   if (alreadyListening) {
@@ -69,6 +51,7 @@ export async function ensureBackendRunning() {
   }
 
   globalThis.__BUCKDUCK_API_STARTED = true;
+  process.env.API_ALREADY_SPAWNED = 'true';
 
   const cwd = process.cwd();
   const candidates = [
@@ -114,10 +97,6 @@ export async function ensureBackendRunning() {
       stdio: 'inherit',
     });
 
-    if (backendProcess && backendProcess.pid) {
-      try { fs.writeFileSync(pidFile, String(backendProcess.pid), 'utf8'); } catch {}
-    }
-
     backendProcess.on('error', (err: any) => {
       console.error('[Instrumentation Backend Error]', err);
     });
@@ -126,7 +105,6 @@ export async function ensureBackendRunning() {
       console.warn(`[Instrumentation] Backend exited with code ${code}, signal ${signal}`);
       globalThis.__BUCKDUCK_API_STARTED = false;
       process.env.API_ALREADY_SPAWNED = 'false';
-      try { if (fs.existsSync(pidFile)) fs.unlinkSync(pidFile); } catch {}
     });
 
     console.log('[Instrumentation] NestJS API process spawned on internal port 4000.');

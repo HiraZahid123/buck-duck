@@ -28,6 +28,26 @@ try {
 } catch (e) {}
 
 
+function isBackendListening(port = 4000) {
+  return new Promise((resolve) => {
+    const socket = new (require('net')).Socket();
+    socket.setTimeout(250);
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.once('error', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.connect(port, '127.0.0.1');
+  });
+}
+
 async function main() {
   // 1. Locate and launch NestJS API backend on internal port 4000
   const apiCandidates = [
@@ -37,21 +57,10 @@ async function main() {
   const apiPath = apiCandidates.find((c) => fs.existsSync(c));
 
   let apiProc = null;
+  const backendAlreadyListening = await isBackendListening(4000);
   const isPrimary = !cluster.isWorker || !cluster.worker || cluster.worker.id === 1;
-  const pidFile = path.join(os.tmpdir(), 'buckduck-api.pid');
 
-  let backendAlreadyRunning = false;
-  if (fs.existsSync(pidFile)) {
-    try {
-      const existingPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
-      if (existingPid && !isNaN(existingPid)) {
-        process.kill(existingPid, 0);
-        backendAlreadyRunning = true;
-      }
-    } catch (e) {}
-  }
-
-  if (isPrimary && !backendAlreadyRunning && apiPath && process.env.API_ALREADY_SPAWNED !== 'true') {
+  if (isPrimary && !backendAlreadyListening && apiPath && process.env.API_ALREADY_SPAWNED !== 'true') {
     process.env.API_ALREADY_SPAWNED = 'true';
     console.log(`[BuckDuck] Launching NestJS API backend from ${apiPath}...`);
     try {
@@ -71,10 +80,6 @@ async function main() {
         stdio: 'inherit',
       });
 
-      if (apiProc.pid) {
-        try { fs.writeFileSync(pidFile, String(apiProc.pid), 'utf8'); } catch (e) {}
-      }
-
       apiProc.on('error', (err) => {
         console.error('[BuckDuck API Error]', err);
       });
@@ -82,7 +87,6 @@ async function main() {
       apiProc.on('exit', (code, signal) => {
         console.warn(`[BuckDuck] NestJS API process exited with code ${code}, signal ${signal}`);
         process.env.API_ALREADY_SPAWNED = 'false';
-        try { if (fs.existsSync(pidFile)) fs.unlinkSync(pidFile); } catch (e) {}
       });
 
       console.log('[BuckDuck] NestJS API process spawned in background.');
@@ -90,13 +94,14 @@ async function main() {
       process.env.API_ALREADY_SPAWNED = 'false';
       console.error('[BuckDuck] Failed to spawn NestJS process:', err);
     }
+  } else if (backendAlreadyListening) {
+    console.log('[BuckDuck] NestJS API is already running on port 4000.');
   } else {
-    console.log('[BuckDuck] NestJS API is already running or this is a secondary cluster worker.');
+    console.log('[BuckDuck] Secondary cluster worker: skipping backend spawn.');
   }
 
   // Cleanly kill child API process on shutdown
   const cleanup = () => {
-    try { if (fs.existsSync(pidFile)) fs.unlinkSync(pidFile); } catch (e) {}
     if (apiProc && !apiProc.killed) {
       try {
         apiProc.kill();
