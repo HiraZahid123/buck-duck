@@ -1,6 +1,8 @@
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import net from 'net';
+import cluster from 'cluster';
 import { fork } from 'child_process';
 
 declare global {
@@ -33,6 +35,28 @@ function isPortOpen(port: number, host = '127.0.0.1'): Promise<boolean> {
 export async function ensureBackendRunning() {
   if (globalThis.__BUCKDUCK_API_STARTED || process.env.API_ALREADY_SPAWNED === 'true') {
     return;
+  }
+
+  // If running under cluster mode, only worker 1 or master should spawn backend
+  if (cluster.isWorker && cluster.worker && cluster.worker.id && cluster.worker.id > 1) {
+    return;
+  }
+
+  // Check PID file in temp directory
+  const pidFile = path.join(os.tmpdir(), 'buckduck-api.pid');
+  if (fs.existsSync(pidFile)) {
+    try {
+      const existingPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+      if (existingPid && !isNaN(existingPid)) {
+        process.kill(existingPid, 0);
+        console.log(`[Instrumentation] Backend process ${existingPid} is already active.`);
+        globalThis.__BUCKDUCK_API_STARTED = true;
+        process.env.API_ALREADY_SPAWNED = 'true';
+        return;
+      }
+    } catch {
+      // Stale PID file
+    }
   }
 
   // Check if backend is already listening on internal port 4000
@@ -90,6 +114,10 @@ export async function ensureBackendRunning() {
       stdio: 'inherit',
     });
 
+    if (backendProcess && backendProcess.pid) {
+      try { fs.writeFileSync(pidFile, String(backendProcess.pid), 'utf8'); } catch {}
+    }
+
     backendProcess.on('error', (err: any) => {
       console.error('[Instrumentation Backend Error]', err);
     });
@@ -98,6 +126,7 @@ export async function ensureBackendRunning() {
       console.warn(`[Instrumentation] Backend exited with code ${code}, signal ${signal}`);
       globalThis.__BUCKDUCK_API_STARTED = false;
       process.env.API_ALREADY_SPAWNED = 'false';
+      try { if (fs.existsSync(pidFile)) fs.unlinkSync(pidFile); } catch {}
     });
 
     console.log('[Instrumentation] NestJS API process spawned on internal port 4000.');

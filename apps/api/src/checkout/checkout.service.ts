@@ -30,9 +30,13 @@ export class CheckoutService {
     const byStore = new Map<number, { store: any; items: any[] }>();
 
     for (const it of items) {
+      const productId = Number(it.product_id ?? (it as any).productId ?? (it as any).id);
+      if (!productId || isNaN(productId)) {
+        continue;
+      }
       const qty = Math.max(1, Math.min(99, Math.floor(it.qty || 1)));
       const product = await this.prisma.product.findUnique({
-        where: { id: it.product_id },
+        where: { id: productId },
         include: { store: true },
       });
 
