@@ -65,48 +65,49 @@ try {
       console.log(`[sync-next] Copied NestJS API dist into standalone and .next.`);
     }
 
-    // Ensure backend dependencies are present in standalone node_modules
+    // ─────────────────────────────────────────────────────────────────────────
+    // STRATEGY: Copy ALL packages from root node_modules into standalone.
+    // This ensures every transitive dependency of NestJS / Prisma / Express /
+    // Socket.io / Stripe is available at runtime — no more "Cannot find module"
+    // errors caused by a hand-curated allow-list missing indirect dependencies.
+    // ─────────────────────────────────────────────────────────────────────────
     const rootModules = path.join(rootDir, 'node_modules');
     const standaloneModules = path.join(standaloneRoot, 'node_modules');
-    const backendDeps = [
-      '@nestjs',
-      '@prisma',
-      'prisma',
-      'bcryptjs',
-      'cors',
-      'dotenv',
-      'express',
-      'fast-safe-stringify',
-      'iterare',
-      'passport',
-      'passport-jwt',
-      'path-to-regexp',
-      'reflect-metadata',
-      'rxjs',
-      'class-transformer',
-      'class-validator',
-      'tslib',
-      'uid',
-      'socket.io',
-      'engine.io',
-      'socket.io-parser',
-      'socket.io-adapter',
-      'stripe',
-      'jsonwebtoken',
-      'jwks-rsa',
-    ];
 
-    for (const dep of backendDeps) {
-      const srcDep = path.join(rootModules, dep);
-      const destDep = path.join(standaloneModules, dep);
-      if (fs.existsSync(srcDep) && !fs.existsSync(destDep)) {
+    if (fs.existsSync(rootModules)) {
+      const allPkgs = fs.readdirSync(rootModules);
+      let copied = 0;
+      let skipped = 0;
+
+      for (const pkg of allPkgs) {
+        // Skip hidden/system folders and the .bin directory (platform-specific executables)
+        if (pkg === '.bin' || pkg === '.cache' || pkg === '.package-lock.json') {
+          skipped++;
+          continue;
+        }
+
+        const srcPkg = path.join(rootModules, pkg);
+        const destPkg = path.join(standaloneModules, pkg);
+
+        // Don't overwrite packages already bundled by Next.js standalone tracing
+        if (fs.existsSync(destPkg)) {
+          skipped++;
+          continue;
+        }
+
         try {
-          fs.mkdirSync(path.dirname(destDep), { recursive: true });
-          fs.cpSync(srcDep, destDep, { recursive: true });
-        } catch {}
+          fs.mkdirSync(path.dirname(destPkg), { recursive: true });
+          fs.cpSync(srcPkg, destPkg, { recursive: true });
+          copied++;
+        } catch (e) {
+          // Silently skip packages that can't be copied (e.g. native addons)
+        }
       }
+
+      console.log(`[sync-next] Synced root node_modules -> standalone: ${copied} copied, ${skipped} skipped (already present).`);
+    } else {
+      console.warn(`[sync-next] Root node_modules not found at ${rootModules}. Backend deps may be missing.`);
     }
-    console.log(`[sync-next] Synced backend dependencies into standalone node_modules.`);
   }
 } catch (err) {
   console.error(`[sync-next] Failed during sync:`, err.message);
