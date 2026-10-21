@@ -25,7 +25,8 @@ const apiCandidates = [
 const apiPath = apiCandidates.find((c) => fs.existsSync(c));
 
 let apiProc = null;
-if (apiPath) {
+if (apiPath && process.env.API_ALREADY_SPAWNED !== 'true') {
+  process.env.API_ALREADY_SPAWNED = 'true';
   console.log(`[BuckDuck] Launching NestJS API backend from ${apiPath}...`);
   try {
     const rootNodeModules = path.join(rootDir, 'node_modules');
@@ -38,6 +39,7 @@ if (apiPath) {
         ...process.env,
         PORT: '4000',
         API_PORT: '4000',
+        API_ALREADY_SPAWNED: 'true',
         NODE_PATH: nodePath,
       },
       stdio: 'inherit',
@@ -47,10 +49,11 @@ if (apiPath) {
     });
     apiProc.on('exit', (code, signal) => {
       console.warn(`[BuckDuck] NestJS API process exited with code ${code}, signal ${signal}`);
+      process.env.API_ALREADY_SPAWNED = 'false';
     });
     console.log('[BuckDuck] NestJS API process spawned successfully on internal port 4000.');
-    process.env.API_ALREADY_SPAWNED = 'true';
   } catch (err) {
+    process.env.API_ALREADY_SPAWNED = 'false';
     console.error('[BuckDuck] Failed to spawn NestJS process:', err);
   }
 } else {
@@ -71,10 +74,10 @@ process.on('exit', cleanup);
 
 // 2. Locate and launch Next.js Standalone server on Hostinger's assigned public PORT
 const nextCandidates = [
-  path.join(rootDir, '.next', 'standalone', 'server.js'),
   path.join(rootDir, '.next', 'standalone', 'apps', 'web', 'server.js'),
-  path.join(rootDir, 'apps', 'web', '.next', 'standalone', 'server.js'),
   path.join(rootDir, 'apps', 'web', '.next', 'standalone', 'apps', 'web', 'server.js'),
+  path.join(rootDir, '.next', 'standalone', 'server.js'),
+  path.join(rootDir, 'apps', 'web', '.next', 'standalone', 'server.js'),
 ];
 
 const serverPath = nextCandidates.find((c) => fs.existsSync(c));

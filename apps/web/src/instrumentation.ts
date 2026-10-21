@@ -7,7 +7,7 @@ export async function register() {
 
     try {
       const { ensureBackendRunning } = await import('./lib/start-backend');
-      ensureBackendRunning();
+      await ensureBackendRunning();
     } catch (err) {
       console.error('[Instrumentation] Error initializing backend:', err);
     }

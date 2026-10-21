@@ -25,90 +25,183 @@ try {
   const standaloneRoot = path.join(destDir, 'standalone');
   const standaloneWeb = path.join(standaloneRoot, 'apps', 'web');
 
-  // If Next.js generated standalone server inside apps/web, ensure top-level standalone server.js exists
-  if (fs.existsSync(standaloneWeb)) {
-    const topServer = path.join(standaloneRoot, 'server.js');
-    if (!fs.existsSync(topServer)) {
-      fs.writeFileSync(topServer, "process.chdir(__dirname);\nrequire('./apps/web/server.js');\n", 'utf8');
-      console.log(`[sync-next] Created top-level standalone server: ${topServer}`);
-    }
+  if (!fs.existsSync(standaloneRoot)) {
+    console.warn('[sync-next] No standalone directory found — skipping post-build sync.');
+    process.exit(0);
+  }
 
-    // Next.js standalone requires static assets to be in .next/static and public in standalone
-    const staticSrc = path.join(srcDir, 'static');
-    if (fs.existsSync(staticSrc)) {
-      const topStatic = path.join(standaloneRoot, '.next', 'static');
+  // ─── 1. Copy public assets ───────────────────────────────────────────────
+  const staticSrc = path.join(srcDir, 'static');
+  if (fs.existsSync(staticSrc)) {
+    const topStatic = path.join(standaloneRoot, '.next', 'static');
+    fs.mkdirSync(path.dirname(topStatic), { recursive: true });
+    fs.cpSync(staticSrc, topStatic, { recursive: true });
+    if (fs.existsSync(standaloneWeb)) {
       const webStatic = path.join(standaloneWeb, '.next', 'static');
-      fs.mkdirSync(path.dirname(topStatic), { recursive: true });
       fs.mkdirSync(path.dirname(webStatic), { recursive: true });
-      fs.cpSync(staticSrc, topStatic, { recursive: true });
       fs.cpSync(staticSrc, webStatic, { recursive: true });
-      console.log(`[sync-next] Copied static chunks into standalone directory.`);
     }
+    console.log(`[sync-next] Copied static chunks into standalone.`);
+  }
 
-    if (fs.existsSync(webPublic)) {
-      const topPublic = path.join(standaloneRoot, 'public');
+  if (fs.existsSync(webPublic)) {
+    const topPublic = path.join(standaloneRoot, 'public');
+    fs.cpSync(webPublic, topPublic, { recursive: true, force: true });
+    if (fs.existsSync(standaloneWeb)) {
       const webPub = path.join(standaloneWeb, 'public');
-      fs.cpSync(webPublic, topPublic, { recursive: true });
-      fs.cpSync(webPublic, webPub, { recursive: true });
-      console.log(`[sync-next] Copied public assets into standalone directory.`);
+      fs.cpSync(webPublic, webPub, { recursive: true, force: true });
     }
+    console.log(`[sync-next] Copied public assets into standalone.`);
+  }
 
-    // Ensure NestJS API dist is copied into standalone and .next directories
-    const apiDist = path.join(rootDir, 'apps', 'api', 'dist');
-    if (fs.existsSync(apiDist)) {
-      const standaloneApiDist = path.join(standaloneRoot, 'apps', 'api', 'dist');
-      const destApiDist = path.join(destDir, 'apps', 'api', 'dist');
-      fs.mkdirSync(standaloneApiDist, { recursive: true });
-      fs.cpSync(apiDist, standaloneApiDist, { recursive: true });
-      fs.mkdirSync(destApiDist, { recursive: true });
-      fs.cpSync(apiDist, destApiDist, { recursive: true });
-      console.log(`[sync-next] Copied NestJS API dist into standalone and .next.`);
-    }
+  // ─── 2. Copy NestJS API dist ─────────────────────────────────────────────
+  const apiDist = path.join(rootDir, 'apps', 'api', 'dist');
+  if (fs.existsSync(apiDist)) {
+    const standaloneApiDist = path.join(standaloneRoot, 'apps', 'api', 'dist');
+    fs.mkdirSync(standaloneApiDist, { recursive: true });
+    fs.cpSync(apiDist, standaloneApiDist, { recursive: true });
+    console.log(`[sync-next] Copied NestJS API dist into standalone.`);
+  } else {
+    console.warn('[sync-next] NestJS API dist not found. NestJS will not start on server.');
+  }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // STRATEGY: Copy ALL packages from root node_modules into standalone.
-    // This ensures every transitive dependency of NestJS / Prisma / Express /
-    // Socket.io / Stripe is available at runtime — no more "Cannot find module"
-    // errors caused by a hand-curated allow-list missing indirect dependencies.
-    // ─────────────────────────────────────────────────────────────────────────
-    const rootModules = path.join(rootDir, 'node_modules');
-    const standaloneModules = path.join(standaloneRoot, 'node_modules');
+  // ─── 3. Sync ALL root node_modules → standalone node_modules ─────────────
+  // This is critical: NestJS needs express, socket.io, stripe and their 300+
+  // transitive deps which are NOT included by Next.js's standalone tracer.
+  const rootModules = path.join(rootDir, 'node_modules');
+  const standaloneModules = path.join(standaloneRoot, 'node_modules');
 
-    if (fs.existsSync(rootModules)) {
-      const allPkgs = fs.readdirSync(rootModules);
-      let copied = 0;
-      let skipped = 0;
+  if (fs.existsSync(rootModules)) {
+    const allPkgs = fs.readdirSync(rootModules);
+    let copied = 0;
+    let skipped = 0;
 
-      for (const pkg of allPkgs) {
-        // Skip hidden/system folders and the .bin directory (platform-specific executables)
-        if (pkg === '.bin' || pkg === '.cache' || pkg === '.package-lock.json') {
-          skipped++;
-          continue;
-        }
-
-        const srcPkg = path.join(rootModules, pkg);
-        const destPkg = path.join(standaloneModules, pkg);
-
-        // Don't overwrite packages already bundled by Next.js standalone tracing
-        if (fs.existsSync(destPkg)) {
-          skipped++;
-          continue;
-        }
-
-        try {
-          fs.mkdirSync(path.dirname(destPkg), { recursive: true });
-          fs.cpSync(srcPkg, destPkg, { recursive: true });
-          copied++;
-        } catch (e) {
-          // Silently skip packages that can't be copied (e.g. native addons)
-        }
+    for (const pkg of allPkgs) {
+      if (pkg === '.bin' || pkg === '.cache' || pkg === '.package-lock.json') {
+        skipped++;
+        continue;
       }
 
-      console.log(`[sync-next] Synced root node_modules -> standalone: ${copied} copied, ${skipped} skipped (already present).`);
-    } else {
-      console.warn(`[sync-next] Root node_modules not found at ${rootModules}. Backend deps may be missing.`);
+      const srcPkg = path.join(rootModules, pkg);
+      const destPkg = path.join(standaloneModules, pkg);
+
+      // Don't overwrite packages already bundled by Next.js standalone tracing
+      if (fs.existsSync(destPkg)) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        fs.mkdirSync(path.dirname(destPkg), { recursive: true });
+        fs.cpSync(srcPkg, destPkg, { recursive: true });
+        copied++;
+      } catch (e) {
+        // Silently skip packages that can't be copied (e.g. native addons)
+      }
     }
+
+    console.log(`[sync-next] Synced node_modules -> standalone: ${copied} new, ${skipped} already present.`);
+  } else {
+    console.warn(`[sync-next] Root node_modules not found. Backend deps may be missing.`);
   }
+
+  // ─── 4. Write a custom top-level server.js that starts NestJS THEN Next.js ─
+  // This replaces the plain `require('./apps/web/server.js')` wrapper with one
+  // that forks NestJS first, then defers to Next.js. This is the most reliable
+  // way to start both servers on Hostinger, regardless of instrumentation.ts.
+  const customServerCode = `/**
+ * BuckDuck Startup Server
+ * Forks NestJS API (port 4000) then starts Next.js (port 3000/PORT).
+ * Generated by scripts/sync-next.js at build time.
+ */
+'use strict';
+const { fork } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+const dir = __dirname;
+process.chdir(dir);
+
+// Load environment variables
+try {
+  require('dotenv').config({ path: path.join(dir, '../../../.env') });
+  require('dotenv').config({ path: path.join(dir, '../../.env') });
+  require('dotenv').config({ path: path.join(dir, '../.env') });
+  require('dotenv').config();
+} catch (e) {}
+
+// Expand NODE_PATH so NestJS can resolve all packages in standalone/node_modules
+const standaloneMods = path.join(dir, 'node_modules');
+const existing = process.env.NODE_PATH || '';
+process.env.NODE_PATH = [standaloneMods, existing].filter(Boolean).join(path.delimiter);
+require('module').Module._initPaths();
+
+// ── Start NestJS API on port 4000 ──────────────────────────────────────────
+const apiCandidates = [
+  path.join(dir, 'apps', 'api', 'dist', 'main.js'),
+  path.join(dir, 'dist', 'main.js'),
+];
+const apiPath = apiCandidates.find(c => fs.existsSync(c));
+
+if (apiPath && process.env.API_ALREADY_SPAWNED !== 'true') {
+  console.log('[BuckDuck] Starting NestJS API from ' + apiPath);
+  try {
+    process.env.API_ALREADY_SPAWNED = 'true';
+    const apiProc = fork(apiPath, [], {
+      env: {
+        ...process.env,
+        PORT: '4000',
+        API_PORT: '4000',
+        API_ALREADY_SPAWNED: 'true',
+        NODE_PATH: standaloneMods + path.delimiter + (process.env.NODE_PATH || ''),
+      },
+      stdio: 'inherit',
+      execArgv: [],
+    });
+    apiProc.on('error', e => console.error('[BuckDuck API error]', e.message));
+    apiProc.on('exit', (code, sig) => console.warn('[BuckDuck] API exited code=' + code + ' signal=' + sig));
+    process.env.API_ALREADY_SPAWNED = 'true';
+  } catch (e) {
+    console.error('[BuckDuck] Failed to fork NestJS:', e.message);
+  }
+} else {
+  console.warn('[BuckDuck] NestJS dist not found. Checked:', apiCandidates.join(', '));
+}
+
+// ── Start Next.js standalone server ────────────────────────────────────────
+const nextServerCandidates = [
+  path.join(dir, 'apps', 'web', 'server.js'),
+  path.join(dir, 'server.js.next'), // fallback name if we renamed it
+];
+const nextServer = nextServerCandidates.find(c => fs.existsSync(c));
+if (nextServer) {
+  console.log('[BuckDuck] Starting Next.js from ' + nextServer);
+  require(nextServer);
+} else {
+  // Final fallback: try to find any server.js in common locations
+  console.error('[BuckDuck] Could not find Next.js server. Searched:', nextServerCandidates.join(', '));
+  process.exit(1);
+}
+`;
+
+  // Find the actual Next.js server.js location
+  const nextWebServer = path.join(standaloneRoot, 'apps', 'web', 'server.js');
+  const nextRootServer = path.join(standaloneRoot, 'server.js');
+
+  if (fs.existsSync(nextWebServer)) {
+    // Next.js server is inside apps/web — write our wrapper as the entry point
+    fs.writeFileSync(nextRootServer, customServerCode, 'utf8');
+    console.log(`[sync-next] Wrote custom dual-server entry at: ${nextRootServer}`);
+  } else if (fs.existsSync(nextRootServer)) {
+    // Next.js server is at root — rename it then write our wrapper
+    fs.renameSync(nextRootServer, nextRootServer.replace('server.js', 'server.next.js'));
+    const adjusted = customServerCode
+      .replace("path.join(dir, 'apps', 'web', 'server.js')", "path.join(dir, 'server.next.js')")
+      .replace("path.join(dir, 'server.js.next')", "path.join(dir, 'server.next.js')");
+    fs.writeFileSync(nextRootServer, adjusted, 'utf8');
+    console.log(`[sync-next] Renamed original server.js and wrote custom wrapper at: ${nextRootServer}`);
+  }
+
 } catch (err) {
-  console.error(`[sync-next] Failed during sync:`, err.message);
+  console.error(`[sync-next] Failed during sync:`, err.message, err.stack);
 }
