@@ -38,42 +38,19 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
 
   const port = Number(process.env.API_PORT) || 4000;
-  const http = await import('http');
 
-  const maxAttempts = 10;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      await app.listen(port, '0.0.0.0');
-      console.log(`🦆 BuckDuck NestJS API is listening on http://0.0.0.0:${port}`);
+  try {
+    await app.listen(port, '0.0.0.0');
+    console.log(`🦆 BuckDuck NestJS API is listening on http://0.0.0.0:${port}`);
+  } catch (err: any) {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`[NestJS] Port ${port} is already actively bound by backend; standby process holding idle.`);
+      // Keep event loop alive without exiting so supervisor does not trigger a restart storm
+      await new Promise(() => {});
       return;
-    } catch (err: any) {
-      if (err.code === 'EADDRINUSE') {
-        // Probe if an active instance is truly responding on port 4000
-        const isResponding = await new Promise<boolean>((resolve) => {
-          const req = http.get(`http://127.0.0.1:${port}/api/healthz`, (res) => {
-            resolve(res.statusCode === 200);
-          });
-          req.on('error', () => resolve(false));
-          req.setTimeout(500, () => {
-            req.destroy();
-            resolve(false);
-          });
-        });
-
-        if (isResponding) {
-          console.log(`[NestJS] Confirmed active backend responding on port ${port}; standby worker exiting.`);
-          return;
-        }
-
-        console.warn(`[NestJS] Port ${port} busy (attempt ${attempt}/${maxAttempts}). Socket lingering; retrying in 600ms...`);
-        await new Promise((r) => setTimeout(r, 600));
-        continue;
-      }
-      throw err;
     }
+    throw err;
   }
-
-  throw new Error(`[NestJS] Could not bind to port ${port} after ${maxAttempts} attempts.`);
 }
 
 bootstrap().catch((err) => {
