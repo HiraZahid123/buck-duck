@@ -134,9 +134,22 @@ process.on('uncaughtException', (err) => {
 
 // Load environment variables
 try {
-  require('dotenv').config({ path: path.join(dir, '../../../.env') });
-  require('dotenv').config({ path: path.join(dir, '../../.env') });
-  require('dotenv').config({ path: path.join(dir, '../.env') });
+  const envCandidates = [
+    path.join(dir, '.env'),
+    path.join(dir, '../.env'),
+    path.join(dir, '../../.env'),
+    path.join(dir, '../../../.env'),
+    path.join(dir, '../../config/.env'),
+    path.join(dir, '../../../config/.env'),
+    path.join(dir, '../../../../config/.env'),
+    '/home/u595725627/domains/buckduck.hirazahid.com/hbuilds/config/.env',
+    '/home/u595725627/domains/buckduck.hirazahid.com/public_html/.env',
+  ];
+  for (const c of envCandidates) {
+    if (fs.existsSync(c)) {
+      require('dotenv').config({ path: c });
+    }
+  }
   require('dotenv').config();
 } catch (e) {}
 

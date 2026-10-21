@@ -21,9 +21,20 @@ process.on('uncaughtException', (err) => {
 
 // Ensure .env is loaded if present
 try {
-  const envPath = path.join(rootDir, '.env');
-  if (fs.existsSync(envPath)) {
-    require('dotenv').config({ path: envPath });
+  const envPaths = [
+    path.join(rootDir, '.env'),
+    path.join(rootDir, '..', '.env'),
+    path.join(rootDir, '..', '..', '.env'),
+    path.join(rootDir, '..', '..', '..', '.env'),
+    path.join(rootDir, '..', '..', 'config', '.env'),
+    path.join(rootDir, '..', '..', '..', 'config', '.env'),
+    '/home/u595725627/domains/buckduck.hirazahid.com/hbuilds/config/.env',
+    '/home/u595725627/domains/buckduck.hirazahid.com/public_html/.env',
+  ];
+  for (const ep of envPaths) {
+    if (fs.existsSync(ep)) {
+      require('dotenv').config({ path: ep });
+    }
   }
 } catch (e) {}
 

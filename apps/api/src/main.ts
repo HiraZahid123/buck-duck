@@ -1,9 +1,24 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
+import * as fs from 'fs';
+
 try {
-  dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
-  dotenv.config({ path: path.resolve(__dirname, '../.env') });
+  const envPaths = [
+    path.resolve(__dirname, '../../../.env'),
+    path.resolve(__dirname, '../.env'),
+    path.resolve(__dirname, '../../../../.env'),
+    path.resolve(__dirname, '../../../../../.env'),
+    path.resolve(__dirname, '../../../../config/.env'),
+    path.resolve(__dirname, '../../../../../config/.env'),
+    '/home/u595725627/domains/buckduck.hirazahid.com/hbuilds/config/.env',
+    '/home/u595725627/domains/buckduck.hirazahid.com/public_html/.env',
+  ];
+  for (const ep of envPaths) {
+    if (fs.existsSync(ep)) {
+      dotenv.config({ path: ep });
+    }
+  }
   dotenv.config();
 } catch {}
 
