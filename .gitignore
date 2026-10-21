@@ -24,3 +24,4 @@ apps/api/dist/
 # OS & IDE
 .DS_Store
 .turbo/
+.neon

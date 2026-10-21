@@ -24,5 +24,9 @@
   },
   "devDependencies": {
     "cross-env": "^10.1.0"
+  },
+  "dependencies": {
+    "@neon/config": "^1.9.3",
+    "@neon/env": "^1.6.4"
   }
 }
