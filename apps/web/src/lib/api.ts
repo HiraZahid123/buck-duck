@@ -27,27 +27,30 @@ export async function apiRequest(method: string, path: string, body?: any, token
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method,
-      headers,
-      body: body && method !== 'GET' ? JSON.stringify(body) : undefined,
-      cache: 'no-store',
-    });
-  } catch (err: any) {
-    if (typeof window === 'undefined') {
-      // Retry once after 600ms for server-side cold start
-      await new Promise((r) => setTimeout(r, 600));
+  let res: Response | null = null;
+  const isServer = typeof window === 'undefined';
+  const maxAttempts = isServer ? 5 : 1;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
       res = await fetch(url, {
         method,
         headers,
         body: body && method !== 'GET' ? JSON.stringify(body) : undefined,
         cache: 'no-store',
       });
-    } else {
+      break;
+    } catch (err: any) {
+      if (isServer && attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 700));
+        continue;
+      }
       throw err;
     }
+  }
+
+  if (!res) {
+    throw new Error('Failed to reach backend server');
   }
 
   let data: any = {};

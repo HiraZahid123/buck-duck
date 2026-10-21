@@ -71,15 +71,15 @@ async function main() {
   const backendAlreadyListening = await isBackendListening(4000);
   const isPrimary = !cluster.isWorker || !cluster.worker || cluster.worker.id === 1;
 
-  if (isPrimary && !backendAlreadyListening && apiPath && process.env.API_ALREADY_SPAWNED !== 'true') {
-    process.env.API_ALREADY_SPAWNED = 'true';
-    console.log(`[BuckDuck] Launching NestJS API backend from ${apiPath}...`);
+  const spawnApi = () => {
+    if (process.env.APP_SHUTTING_DOWN) return;
     try {
       const rootNodeModules = path.join(rootDir, 'node_modules');
       const apiNodeModules = path.join(rootDir, 'apps', 'api', 'node_modules');
       const webNodeModules = path.join(rootDir, 'apps', 'web', 'node_modules');
       const nodePath = [rootNodeModules, apiNodeModules, webNodeModules, process.env.NODE_PATH || ''].filter(Boolean).join(path.delimiter);
 
+      console.log(`[BuckDuck] Launching NestJS API backend from ${apiPath}...`);
       apiProc = fork(apiPath, [], {
         env: {
           ...process.env,
@@ -95,9 +95,17 @@ async function main() {
         console.error('[BuckDuck API Error]', err);
       });
 
-      apiProc.on('exit', (code, signal) => {
+      apiProc.on('exit', async (code, signal) => {
         console.warn(`[BuckDuck] NestJS API process exited with code ${code}, signal ${signal}`);
         process.env.API_ALREADY_SPAWNED = 'false';
+        if (!process.env.APP_SHUTTING_DOWN) {
+          await new Promise((r) => setTimeout(r, 800));
+          const alive = await isBackendListening(4000);
+          if (!alive) {
+            console.log('[BuckDuck] Port 4000 is offline; auto-restarting NestJS backend...');
+            spawnApi();
+          }
+        }
       });
 
       console.log('[BuckDuck] NestJS API process spawned in background.');
@@ -105,6 +113,10 @@ async function main() {
       process.env.API_ALREADY_SPAWNED = 'false';
       console.error('[BuckDuck] Failed to spawn NestJS process:', err);
     }
+  };
+
+  if (isPrimary && !backendAlreadyListening && apiPath) {
+    spawnApi();
   } else if (backendAlreadyListening) {
     console.log('[BuckDuck] NestJS API is already running on port 4000.');
   } else {
@@ -113,6 +125,7 @@ async function main() {
 
   // Cleanly kill child API process on shutdown
   const cleanup = () => {
+    process.env.APP_SHUTTING_DOWN = 'true';
     if (apiProc && !apiProc.killed) {
       try {
         apiProc.kill();

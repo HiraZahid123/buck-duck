@@ -187,14 +187,13 @@ async function boot() {
   ];
   const apiPath = apiCandidates.find(c => fs.existsSync(c));
   let apiProc = null;
-
   const backendAlreadyListening = await isBackendListening(4000);
   const isPrimary = !cluster.isWorker || !cluster.worker || cluster.worker.id === 1;
 
-  if (isPrimary && !backendAlreadyListening && apiPath && process.env.API_ALREADY_SPAWNED !== 'true') {
-    process.env.API_ALREADY_SPAWNED = 'true';
-    console.log('[BuckDuck] Starting NestJS API from ' + apiPath);
+  const spawnApi = () => {
+    if (process.env.APP_SHUTTING_DOWN) return;
     try {
+      console.log('[BuckDuck] Starting NestJS API from ' + apiPath);
       apiProc = fork(apiPath, [], {
         env: {
           ...process.env,
@@ -207,15 +206,27 @@ async function boot() {
         execArgv: [],
       });
       apiProc.on('error', e => console.error('[BuckDuck API error]', e.message));
-      apiProc.on('exit', (code, sig) => {
+      apiProc.on('exit', async (code, sig) => {
         console.warn('[BuckDuck] API exited code=' + code + ' signal=' + sig);
         process.env.API_ALREADY_SPAWNED = 'false';
+        if (!process.env.APP_SHUTTING_DOWN) {
+          await new Promise(r => setTimeout(r, 800));
+          const alive = await isBackendListening(4000);
+          if (!alive) {
+            console.log('[BuckDuck] Port 4000 is offline; auto-restarting NestJS backend...');
+            spawnApi();
+          }
+        }
       });
       console.log('[BuckDuck] NestJS API process spawned in background.');
     } catch (e) {
       process.env.API_ALREADY_SPAWNED = 'false';
       console.error('[BuckDuck] Failed to fork NestJS:', e.message);
     }
+  };
+
+  if (isPrimary && !backendAlreadyListening && apiPath) {
+    spawnApi();
   } else if (backendAlreadyListening) {
     console.log('[BuckDuck] NestJS API is already running on port 4000.');
   } else {
@@ -223,6 +234,7 @@ async function boot() {
   }
 
   const cleanup = () => {
+    process.env.APP_SHUTTING_DOWN = 'true';
     if (apiProc && !apiProc.killed) {
       try { apiProc.kill(); } catch {}
     }
