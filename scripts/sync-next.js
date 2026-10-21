@@ -87,6 +87,13 @@ try {
       'class-validator',
       'tslib',
       'uid',
+      'socket.io',
+      'engine.io',
+      'socket.io-parser',
+      'socket.io-adapter',
+      'stripe',
+      'jsonwebtoken',
+      'jwks-rsa',
     ];
 
     for (const dep of backendDeps) {
