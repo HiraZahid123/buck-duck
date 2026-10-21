@@ -36,11 +36,18 @@ export function ensureBackendRunning() {
 
   console.log(`[Instrumentation] Booting NestJS API from ${apiPath}...`);
   try {
+    const rootNodeModules = path.resolve(cwd, 'node_modules');
+    const apiNodeModules = path.resolve(cwd, 'apps/api/node_modules');
+    const webNodeModules = path.resolve(cwd, 'apps/web/node_modules');
+    const existingNodePath = process.env.NODE_PATH || '';
+    const nodePath = [rootNodeModules, apiNodeModules, webNodeModules, existingNodePath].filter(Boolean).join(path.delimiter);
+
     backendProcess = fork(apiPath, [], {
       env: {
         ...process.env,
         PORT: '4000',
         API_PORT: '4000',
+        NODE_PATH: nodePath,
       },
       stdio: 'inherit',
     });

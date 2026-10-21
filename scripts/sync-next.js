@@ -73,13 +73,20 @@ try {
       '@prisma',
       'prisma',
       'bcryptjs',
+      'cors',
+      'dotenv',
+      'express',
+      'fast-safe-stringify',
+      'iterare',
       'passport',
       'passport-jwt',
+      'path-to-regexp',
       'reflect-metadata',
       'rxjs',
       'class-transformer',
       'class-validator',
-      'dotenv',
+      'tslib',
+      'uid',
     ];
 
     for (const dep of backendDeps) {
