@@ -28,11 +28,17 @@ let apiProc = null;
 if (apiPath) {
   console.log(`[BuckDuck] Launching NestJS API backend from ${apiPath}...`);
   try {
+    const rootNodeModules = path.join(rootDir, 'node_modules');
+    const apiNodeModules = path.join(rootDir, 'apps', 'api', 'node_modules');
+    const webNodeModules = path.join(rootDir, 'apps', 'web', 'node_modules');
+    const nodePath = [rootNodeModules, apiNodeModules, webNodeModules, process.env.NODE_PATH || ''].filter(Boolean).join(path.delimiter);
+
     apiProc = fork(apiPath, [], {
       env: {
         ...process.env,
         PORT: '4000',
         API_PORT: '4000',
+        NODE_PATH: nodePath,
       },
       stdio: 'inherit',
     });
