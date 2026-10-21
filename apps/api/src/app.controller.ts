@@ -1,9 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
 import { WindowsService } from './windows/windows.service';
+import { PrismaService } from './prisma/prisma.service';
 
 @Controller('api')
 export class AppController {
-  constructor(private windowsService: WindowsService) {}
+  constructor(
+    private windowsService: WindowsService,
+    private prisma: PrismaService,
+  ) {}
 
   @Get('config')
   async getConfig() {
@@ -33,4 +37,42 @@ export class AppController {
   getHealth() {
     return { ok: true, timestamp: new Date().toISOString() };
   }
+
+  @Get('debug')
+  async getDebug() {
+    let dbStatus = 'unknown';
+    let dbError = null;
+    let storeCount = 0;
+    try {
+      storeCount = await this.prisma.store.count();
+      dbStatus = 'connected';
+    } catch (err: any) {
+      dbStatus = 'error';
+      dbError = err.message;
+    }
+
+    const dbUrl = process.env.DATABASE_URL || '';
+    const safeUrl = dbUrl ? dbUrl.replace(/:[^:@]+@/, ':***@') : 'NOT_SET';
+
+    return {
+      server: 'NestJS Backend',
+      status: 'online',
+      port: process.env.API_PORT || 4000,
+      pid: process.pid,
+      uptimeSeconds: Math.floor(process.uptime()),
+      database: {
+        status: dbStatus,
+        storesInDb: storeCount,
+        error: dbError,
+        connectionStringConfigured: !!dbUrl,
+        connectionStringMasked: safeUrl,
+      },
+      env: {
+        NODE_ENV: process.env.NODE_ENV,
+        DEMO_MODE: process.env.DEMO_MODE,
+      },
+      nodeVersion: process.version,
+    };
+  }
 }
+

@@ -51,14 +51,28 @@ export async function apiRequest(method: string, path: string, body?: any, token
   }
 
   let data: any = {};
+  let rawText = '';
   try {
-    data = await res.json();
+    rawText = await res.text();
+    data = JSON.parse(rawText);
   } catch {
-    // empty response body
+    // response is not JSON
   }
 
   if (!res.ok) {
-    throw new Error(data.error || data.message || `Request failed with status ${res.status}`);
+    let errorMsg =
+      (typeof data.message === 'string' && data.message) ||
+      (Array.isArray(data.message) && data.message.join(', ')) ||
+      data.error ||
+      data.details ||
+      (rawText && rawText.length < 300 ? rawText.trim() : null) ||
+      `Server Error (Status ${res.status})`;
+
+    if (errorMsg === 'Internal Server Error') {
+      errorMsg = 'Backend Service Offline (Port 4000 refused connection). NestJS API is not running or still booting.';
+    }
+
+    throw new Error(errorMsg);
   }
 
   return data;
